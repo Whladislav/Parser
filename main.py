@@ -1,8 +1,8 @@
-from dateutil.relativedelta import relativedelta
+import dateutil
+import datetime
 from datetime import datetime, timedelta
-import pymorphy2
-morph = pymorphy2.MorphAnalyzer()
-msgin = input()
+from dateutil.relativedelta import relativedelta
+import re
 
 
 class FixDataFinder:    #Класс, объеденяющий в себе все функции, которые отвечают за фиксированную дату
@@ -17,7 +17,9 @@ class FixDataFinder:    #Класс, объеденяющий в себе все
         "августа",
         "сентября",
         "октября",
+        'ноября',
         'декабря']
+    __week__ = ['понедельник','вторник','среду','четверг','пятницу','субботу','воскресенье']
 
     def year(str):   #на вход получает изначальную строку. Возвращает год
         yeartxt = ['года']
@@ -36,13 +38,26 @@ class FixDataFinder:    #Класс, объеденяющий в себе все
     def day(str):        #на вход получает изначальную строку. Возвращает день
         for i in FixDataFinder.__months__:
             if i in str:
-                return str[str.find(i) - 3:str.find(i) - 1]
+                if str[str.find(i) - 3].isdigit():
+                    return str[str.find(i) - 3:str.find(i) - 1]
+                else:
+                    return str[str.find(i) - 2:str.find(i) - 1]
         return None
 
     def time(str):      #на вход получает изначальную строку. Записывает время в окончательный словарь
-        if str.rfind(':') and str[str.rfind(':')-1].isdigit() and str[str.rfind(':')+1].isdigit():
+        global MESSAGE
+        if 'утром' in str or 'вечером' in str or 'днем' in str:
+            if 'утром' in str:
+                MESSAGE['DATE']['hour'] = 9
+                MESSAGE['DATE']['minute'] = 0
+            elif 'днем' in str:
+                MESSAGE['DATE']['hour'] = 13
+                MESSAGE['DATE']['minute'] = 0
+            elif 'вечером' in str:
+                MESSAGE['DATE']['hour'] = 19
+                MESSAGE['DATE']['minute'] = 0
+        elif str.rfind(':') and str[str.rfind(':')-1].isdigit() and str[str.rfind(':')+1].isdigit():
             time = str[str.rfind(':') - 2:str.rfind(':') + 3]
-            global MESSAGE
             if time[0] == ' ':
                 MESSAGE['DATE']['hour'] = time[1:2]
                 MESSAGE['DATE']['minute'] = time[3:]
@@ -50,7 +65,32 @@ class FixDataFinder:    #Класс, объеденяющий в себе все
                 MESSAGE['DATE']['hour'] = time[:2]
                 MESSAGE['DATE']['minute'] = time[3:]
 
+    def dayOfWeek(str):
+        for i in FixDataFinder.__week__:
+            if i in str:
+                if datetime.now().weekday()<FixDataFinder.__week__.index(i):
+                    return FixDataFinder.__week__.index(i)-datetime.now().weekday()
+
 def Delete_Date(str):
+    __months__ = [
+        'января',
+        'февраля',
+        'марта',
+        'апреля',
+        "мая",
+        "июня",
+        "июля",
+        "августа",
+        "сентября",
+        "октября",
+        'декабря']
+    __week__ = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
+    for i in __months__:
+        if i in str:
+            return str[:str.find(i)-3]
+    for i in __week__:
+        if i in str:
+            return str[:str.find(i)-3]
 
     if 'через' in str:
         return str[:str.find('через')-1]
@@ -65,8 +105,7 @@ def Delete_Date(str):
 
 def dynamic_time(list):    #Используется когда используется предлог "через"
     global current_time
-
-    if not list[0].isdigit():
+    if len(list)==1:
         if list[0]=='год':
             current_time += timedelta(years=1)
         elif list[0] == 'час':
@@ -79,7 +118,7 @@ def dynamic_time(list):    #Используется когда использу
             current_time += timedelta(minutes=1)
         elif list[0]=='неделю':
             current_time += timedelta(days=7)
-    if  list[1] == 'года' or list[1] == 'лет':
+    elif  list[1] == 'года' or list[1] == 'лет':
         current_time += timedelta(years=int(list[0]))
     elif list[1] == 'месяца' or list[1] == 'месяцев':
         current_time += timedelta(months=int(list[0]))
@@ -106,6 +145,50 @@ def updateDynTime(c):
     MESSAGE['DATE']['day'] = c.day
     MESSAGE['DATE']['hour'] = c.hour
     MESSAGE['DATE']['minute'] = c.minute
+
+
+def chisla(str):  #обрабатывает запросы типа: "Приготовить плов 17 числа". И тут у меня кончилась фантазия для названий функций
+    str=str[str.rfind('числа')-3:str.rfind('числа')-1]
+    if str[0]==' ':
+        str=str[1:]
+    c = datetime.now()
+    if int(str)<int(datetime.now().day):
+        c += relativedelta(months=1)
+        c -= relativedelta(days= c.day-int(str))
+        return c
+    else:
+        c += timedelta(days=int(str) - c.day)
+        return c
+
+def zero_adder():
+    global MESSAGE
+    num=[1,2,3,4,5,6,7,8,9]
+    snum=['1','2','3','4','5','6','7','8','9']
+    if MESSAGE['DATE']['month'] in num or MESSAGE['DATE']['month'] in snum :
+        MESSAGE['DATE']['month'] = '0' + str(MESSAGE['DATE']['month'])
+
+    if  MESSAGE['DATE']['day'] in num or MESSAGE['DATE']['day'] in snum:
+        MESSAGE['DATE']['day'] = '0' + str(MESSAGE['DATE']['day'])
+
+    if  MESSAGE['DATE']['minute'] in num:
+        MESSAGE['DATE']['minute'] = '0' + MESSAGE['DATE']['minute']
+
+    #if MESSAGE['DATE']['hour'] in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
+    #    MESSAGE['DATE']['hour'] = '0' + MESSAGE['DATE']['hour']
+
+def space_deleter():
+    global msgin
+    while '  ' in msgin:
+        msgin=msgin.replace('  ',' ')
+
+def addToInt():
+    global MESSAGE
+    int(MESSAGE['DATE']['year'])
+    int(MESSAGE['DATE']['month'])
+    int(MESSAGE['DATE']['day'])
+    int(MESSAGE['DATE']['hour'])
+    int(MESSAGE['DATE']['minute'])
+
 """
 def TxttoInt(str):
     list=str.split()
@@ -113,52 +196,75 @@ def TxttoInt(str):
         if 'NUMR' in morph.parse(i)[0].tag:
             list[list.index(i)]=''
 """
+
+def datecomp():
+    global MESSAGE
+    c=datetime(int(MESSAGE['DATE']['year']),int(MESSAGE['DATE']['month']),int(MESSAGE['DATE']['day']),int(MESSAGE['DATE']['hour']),int(MESSAGE['DATE']['minute']))
+
+    if c>datetime.now():
+        return True
+    else:
+        return False
+
+msgin = input()
+
+space_deleter()
+
 MESSAGE = {'STATUS': None, 'DATE': {'year': None, 'month': None, 'day': None, 'hour': None, 'minute': None},
            'TEXT': None}
 
-if 'через' in msgin:
+if 'через' in msgin:                            #здесь происходит обработка сообщения с предлогом через
     str = msgin[msgin.rfind('через') + 6:]
     list = str.split(' ')
     current_time = datetime.now()
     while list:
         dynamic_time(list[:2])
         list.remove(list[0])
-        list.remove(list[0])
-    print(type(current_time))
+        if list:
+            list.remove(list[0])
     updateDynTime(current_time)
+
+elif 'завтра' in msgin or 'послезавтра' in msgin:
+    current_time = datetime.now()
+    if 'завтра' in msgin:
+        current_time += timedelta(days=1)
+    if 'послезавтра' in msgin:
+        current_time += timedelta(days=2)
+    updateDynTime(current_time)
+
+
+elif 'числа' in msgin:
+    c=chisla(msgin)
+    updateDynTime(c)
+
+elif 'понедельник' in msgin or'вторник' in msgin or 'среду' in msgin or 'четверг' in msgin or 'пятницу' in msgin or 'субботу' in msgin or'воскресенье' in msgin:
+    current_time = datetime.now()
+    current_time+= relativedelta(days=FixDataFinder.dayOfWeek(msgin))
+    updateDynTime(current_time)
+    FixDataFinder.time(msgin)
 
 
 else:
     MESSAGE['DATE']['year'] = FixDataFinder.year(msgin)
-    if FixDataFinder.month(msgin) in [1,2,3,4,5,6,7,8,9]:
-        MESSAGE['DATE']['month'] = '0' + str(FixDataFinder.month(msgin))
-    else:
-        MESSAGE['DATE']['month'] = str(FixDataFinder.month(msgin))
-
-    if FixDataFinder.day(msgin)[0]==' ':
-        MESSAGE['DATE']['day'] = '0'+FixDataFinder.day(msgin)[1]
-    else:
-        MESSAGE['DATE']['day'] =FixDataFinder.day(msgin)
+    MESSAGE['DATE']['month'] =FixDataFinder.month(msgin)
+    MESSAGE['DATE']['day'] = FixDataFinder.day(msgin)
     FixDataFinder.time(msgin)
+
+
+    if not MESSAGE['DATE']['year']:
+        MESSAGE['DATE']['year']=datetime.now().year
+    if not MESSAGE['DATE']['month']:
+        MESSAGE['DATE']['month'] = datetime.now().month
+    if not MESSAGE['DATE']['day']:
+        MESSAGE['DATE']['day'] = datetime.now().day
+        if not datecomp():
+            MESSAGE['DATE']['day']+=1
+
 MESSAGE['TEXT'] = Delete_Date(msgin)
 
-'''if MESSAGE['DATE']['day'] in [1,2,3,4,5,6,7,8,9] and MESSAGE['DATE']['month'] in [1,2,3,4,5,6,7,8,9]:
-    print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',
-          MESSAGE['DATE']['minute'], ' 0', MESSAGE['DATE']['day'], '.0', MESSAGE['DATE']['month'], '.',
-          MESSAGE['DATE']['year'], sep='')
+print(MESSAGE)
 
-elif MESSAGE['DATE']['day']<10:
-    print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',
-          MESSAGE['DATE']['minute'], ' 0', MESSAGE['DATE']['day'], '.', MESSAGE['DATE']['month'], '.',
-          MESSAGE['DATE']['year'], sep='')
-
-elif MESSAGE['DATE']['month']<10:
-    print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',
-          MESSAGE['DATE']['minute'], ' ', MESSAGE['DATE']['day'], '.0', MESSAGE['DATE']['month'], '.',
-          MESSAGE['DATE']['year'], sep='')
-
-else:'''
-print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',MESSAGE['DATE']['minute'], ' ', MESSAGE['DATE']['day'], '.', MESSAGE['DATE']['month'], '.',MESSAGE['DATE']['year'], sep='')
+#print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',MESSAGE['DATE']['minute'], ' ', MESSAGE['DATE']['day'], '.', MESSAGE['DATE']['month'], '.',MESSAGE['DATE']['year'], sep='')
 
 
 
