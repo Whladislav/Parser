@@ -2,7 +2,7 @@ import dateutil
 import datetime
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-import re
+
 
 
 class FixDataFinder:    #Класс, объеденяющий в себе все функции, которые отвечают за фиксированную дату
@@ -136,7 +136,8 @@ def dynamic_time(list):    #Используется когда использу
         current_time += timedelta(minutes=int(list[0]))
     elif list[1] == 'минуту':
         current_time += timedelta(minutes=1)
-
+    elif list[1]=='недель':
+            current_time += timedelta(days=7*list[0])
 
 def updateDynTime(c):
 
@@ -206,63 +207,73 @@ def datecomp():
     else:
         return False
 
-msgin = input()
+try:
+    msgin = input()
 
-space_deleter()
+    space_deleter()
 
-MESSAGE = {'STATUS': None, 'DATE': {'year': None, 'month': None, 'day': None, 'hour': None, 'minute': None},
-           'TEXT': None}
+    MESSAGE = {'STATUS': None, 'DATE': {'year': None, 'month': None, 'day': None, 'hour': None, 'minute': None},
+               'TEXT': None}
 
-if 'через' in msgin:                            #здесь происходит обработка сообщения с предлогом через
-    str = msgin[msgin.rfind('через') + 6:]
-    list = str.split(' ')
-    current_time = datetime.now()
-    while list:
-        dynamic_time(list[:2])
-        list.remove(list[0])
-        if list:
+    if 'через' in msgin:                            #здесь происходит обработка сообщения с предлогом через
+        str = msgin[msgin.rfind('через') + 6:]
+        list = str.split(' ')
+        current_time = datetime.now()
+        while list:
+            dynamic_time(list[:2])
             list.remove(list[0])
-    updateDynTime(current_time)
+            if list:
+                list.remove(list[0])
+        updateDynTime(current_time)
 
-elif 'завтра' in msgin or 'послезавтра' in msgin:
-    current_time = datetime.now()
-    if 'завтра' in msgin:
-        current_time += timedelta(days=1)
-    if 'послезавтра' in msgin:
-        current_time += timedelta(days=2)
-    updateDynTime(current_time)
-
-
-elif 'числа' in msgin:
-    c=chisla(msgin)
-    updateDynTime(c)
-
-elif 'понедельник' in msgin or'вторник' in msgin or 'среду' in msgin or 'четверг' in msgin or 'пятницу' in msgin or 'субботу' in msgin or'воскресенье' in msgin:
-    current_time = datetime.now()
-    current_time+= relativedelta(days=FixDataFinder.dayOfWeek(msgin))
-    updateDynTime(current_time)
-    FixDataFinder.time(msgin)
+    elif 'завтра' in msgin or 'послезавтра' in msgin:
+        current_time = datetime.now()
+        if 'завтра' in msgin:
+            current_time += timedelta(days=1)
+        if 'послезавтра' in msgin:
+            current_time += timedelta(days=2)
+        updateDynTime(current_time)
 
 
-else:
-    MESSAGE['DATE']['year'] = FixDataFinder.year(msgin)
-    MESSAGE['DATE']['month'] =FixDataFinder.month(msgin)
-    MESSAGE['DATE']['day'] = FixDataFinder.day(msgin)
-    FixDataFinder.time(msgin)
+    elif 'числа' in msgin:
+        c=chisla(msgin)
+        updateDynTime(c)
+
+    elif 'понедельник' in msgin or'вторник' in msgin or 'среду' in msgin or 'четверг' in msgin or 'пятницу' in msgin or 'субботу' in msgin or'воскресенье' in msgin:
+        current_time = datetime.now()
+        current_time+= relativedelta(days=FixDataFinder.dayOfWeek(msgin))
+        updateDynTime(current_time)
+        FixDataFinder.time(msgin)
 
 
-    if not MESSAGE['DATE']['year']:
-        MESSAGE['DATE']['year']=datetime.now().year
-    if not MESSAGE['DATE']['month']:
-        MESSAGE['DATE']['month'] = datetime.now().month
-    if not MESSAGE['DATE']['day']:
-        MESSAGE['DATE']['day'] = datetime.now().day
+    else:
+        MESSAGE['DATE']['year'] = FixDataFinder.year(msgin)
+        MESSAGE['DATE']['month'] =FixDataFinder.month(msgin)
+        MESSAGE['DATE']['day'] = FixDataFinder.day(msgin)
+        FixDataFinder.time(msgin)
+
+
+        if not MESSAGE['DATE']['year']:
+            MESSAGE['DATE']['year']=datetime.now().year
+        if not MESSAGE['DATE']['month']:
+            MESSAGE['DATE']['month'] = datetime.now().month
+        if not MESSAGE['DATE']['day']:
+            MESSAGE['DATE']['day'] = datetime.now().day
+            if not datecomp():
+                MESSAGE['DATE']['day'] += 1
+        if not MESSAGE['DATE']['hour']:
+            MESSAGE['DATE']['hour'] = datetime.now().hour
+        if not MESSAGE['DATE']['minute']:
+            MESSAGE['DATE']['minute'] = datetime.now().minute
         if not datecomp():
-            MESSAGE['DATE']['day']+=1
-
-MESSAGE['TEXT'] = Delete_Date(msgin)
-
-print(MESSAGE)
+            MESSAGE['DATE']['year'] += 1
+    MESSAGE['TEXT'] = Delete_Date(msgin)
+    MESSAGE['STATUS'] = 'SUCCESS'
+    print(MESSAGE)
+except Exception as e:
+    MESSAGE['STATUS'] = 'ERROR'
+    MESSAGE['TEXT'] = e
+    print(MESSAGE)
 
 #print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',MESSAGE['DATE']['minute'], ' ', MESSAGE['DATE']['day'], '.', MESSAGE['DATE']['month'], '.',MESSAGE['DATE']['year'], sep='')
 
