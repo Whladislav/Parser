@@ -254,7 +254,7 @@ try:
 
 
         if not MESSAGE['DATE']['year']:
-            MESSAGE['DATE']['year']=datetime.now().year
+            MESSAGE['DATE']['year'] = datetime.now().year
         if not MESSAGE['DATE']['month']:
             MESSAGE['DATE']['month'] = datetime.now().month
         if not MESSAGE['DATE']['day']:
