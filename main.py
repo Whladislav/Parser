@@ -2,6 +2,7 @@ import dateutil
 import datetime
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+import re
 
 
 
@@ -101,6 +102,19 @@ def Delete_Date(str):
                 if str[-1]=='в' and str[-2]==' ':
                     str=str[:-2]
                 return str
+    if 'послезавтра' in str:
+        return str[:str.find('послезавтра')-1]
+    elif 'завтра' in str:
+        return str[:str.find('завтра')-1]
+
+    if re.search('\d\d.\d\d.\d{4}', msgin) or re.search('\d\d.\d\d.\d{2}', msgin):
+        if re.search('\d\d.\d\d.\d{4}', msgin):
+            r = re.search('\d\d.\d\d.\d{4}', msgin)
+        else:
+            r = re.search('\d\d.\d\d.\d{2}', msgin)
+    return str[:r.start()]
+
+
 
 
 def dynamic_time(list):    #Используется когда используется предлог "через"
@@ -155,7 +169,7 @@ def chisla(str):  #обрабатывает запросы типа: "Приго
     c = datetime.now()
     if int(str)<int(datetime.now().day):
         c += relativedelta(months=1)
-        c -= relativedelta(days= c.day-int(str))
+        c -= relativedelta(days=c.day-int(str))
         return c
     else:
         c += timedelta(days=int(str) - c.day)
@@ -190,13 +204,6 @@ def addToInt():
     int(MESSAGE['DATE']['hour'])
     int(MESSAGE['DATE']['minute'])
 
-"""
-def TxttoInt(str):
-    list=str.split()
-    for i in list:
-        if 'NUMR' in morph.parse(i)[0].tag:
-            list[list.index(i)]=''
-"""
 
 def datecomp():
     global MESSAGE
@@ -215,7 +222,23 @@ try:
     MESSAGE = {'STATUS': None, 'DATE': {'year': None, 'month': None, 'day': None, 'hour': None, 'minute': None},
                'TEXT': None}
 
-    if 'через' in msgin:                            #здесь происходит обработка сообщения с предлогом через
+
+    if re.search('\d\d.\d\d.\d{4}',msgin) or re.search('\d\d.\d\d.\d{2}',msgin):
+        if re.search('\d\d.\d\d.\d{4}',msgin):
+            r = re.search('\d\d.\d\d.\d{4}', msgin)
+        else:
+            r = re.search('\d\d.\d\d.\d{2}',msgin)
+        MESSAGE['DATE']['day'] = r[0][:2]
+        MESSAGE['DATE']['month'] = r[0][3:5]
+        MESSAGE['DATE']['year'] = r[0][6:]
+        MESSAGE['TEXT']=Delete_Date(msgin)
+
+    if re.search('\d\d:\d\d',msgin):
+        r = re.search('\d\d:\d\d', msgin)
+        MESSAGE['DATE']['hour'] = r[0][:2]
+        MESSAGE['DATE']['minute'] = r[0][2:]
+
+    elif 'через' in msgin:                            #здесь происходит обработка сообщения с предлогом через
         str = msgin[msgin.rfind('через') + 6:]
         list = str.split(' ')
         current_time = datetime.now()
@@ -233,6 +256,7 @@ try:
         if 'послезавтра' in msgin:
             current_time += timedelta(days=2)
         updateDynTime(current_time)
+        MESSAGE['TEXT']=Delete_Date(msgin)
 
 
     elif 'числа' in msgin:
