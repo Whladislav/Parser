@@ -1,4 +1,3 @@
-import dateutil
 import datetime
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -6,300 +5,301 @@ import re
 
 
 
-class FixDataFinder:    #Класс, объеденяющий в себе все функции, которые отвечают за фиксированную дату
-    __months__ = [
+class Parser:
+    months = [
         'января',
         'февраля',
         'марта',
         'апреля',
-        "мая",
-        "июня",
-        "июля",
-        "августа",
-        "сентября",
-        "октября",
+        'мая',
+        'июня',
+        'июля',
+        'августа',
+        'сентября',
+        'октября',
         'ноября',
         'декабря']
-    __week__ = ['понедельник','вторник','среду','четверг','пятницу','субботу','воскресенье']
+    week = ['понедельник','вторник','среду','четверг','пятницу','субботу','воскресенье']
 
-    def year(str):   #на вход получает изначальную строку. Возвращает год
+    def __init__(self, message):
+        self.raw_message = message
+        self.year = 0
+        self.month = None
+        self.day = None
+        self.hour = None
+        self.minute = None
+        self.text = None
+        self.DayOfWeek = None
+        self.repeatAlways = None
+        self.status = None
+        try:
+            pass
+        except Exception as e:
+            pass
+
+        if 1:
+            if re.search('\d\d.\d\d.\d{4}', message) or re.search('\d\d.\d\d.\d{2}', message):
+                if re.search('\d\d.\d\d.\d{4}', message):
+                    r = re.search('\d\d.\d\d.\d{4}', message)
+                else:
+                    r = re.search('\d\d.\d\d.\d{2}', message)
+                self.day = r[0][:2]
+                self.month = r[0][3:5]
+                self.year = r[0][6:]
+                self.text = self.Delete_Date(message)
+
+            if re.search('\d\d:\d\d', message):
+                r = re.search('\d\d:\d\d', message)
+                self.hour = r[0][:2]
+                self.minute = r[0][3:]
+
+            if re.search(' \d:\d\d', message):
+                r = re.search(' \d:\d\d', message)
+                self.hour = r[0][1:2]
+                self.minute = r[0][3:]
+
+            if 'через' in message or 'Через' in message:  # здесь происходит обработка сообщения с предлогом через
+                string = message[message.rfind('через') + 7:]
+                List = string.split(' ')
+                current_time = datetime.now()
+                while List:
+                    current_time = self.dynamic_time(List[:2],current_time)
+                    List.remove(List[0])
+                    if List:
+                        List.remove(List[0])
+                self.updateDynTime(current_time)
+
+            elif 'завтра' in message or 'послезавтра' in message:
+                current_time = datetime.now()
+                if 'завтра' in message:
+                    current_time += timedelta(days=1)
+                if 'послезавтра' in message:
+                    current_time += timedelta(days=2)
+                self.updateDynTime(current_time)
+                self.text = self.Delete_Date(message)
+
+
+            elif 'числа' in message:
+                c = self.chisla(message)
+                self.updateDynTime(c)
+
+            elif 'понедельник' in message or 'вторник' in message or 'среду' in message or 'четверг' in message or 'пятницу' in message or 'субботу' in message or 'воскресенье' in message:
+                self.DayOfWeek = self.dayOfWeek(message)+1
+                cur = datetime.now()
+                cur += timedelta(days=self.DayOfWeek)
+                self.day = cur.day
+                self.month=cur.month
+                if not self.hour and not self.minute:
+                    self.hour = datetime.now().hour
+                    self.minute = datetime.now().minute
+
+            else:
+                self.year = self.YearFinder(message)
+                self.month = self.MonthFinder(message)
+                self.day = self.DayFinder(message)
+                self.Time(message)
+                self.Time(message)
+
+            if not self.year:
+                self.year = datetime.now().year
+                if not self.datecomp():
+                    self.year += 1
+            if not self.month:
+                self.month = datetime.now().month
+            if not self.day:
+                self.day = datetime.now().day
+                if not self.datecomp():
+                    self.day += 1
+            if not self.hour:
+                self.hour = datetime.now().hour
+            if not self.minute:
+                self.minute = 0
+            self.text = self.Delete_Date(message)
+            self.status = 'SUCCESS'
+            if self.text[-1] == ' ':
+                self.text = self.text[:-1]
+        """except Exception as e:
+            pass
+            self.status = 'ERROR'
+            self.text = e"""
+
+
+
+    def Print_info(self):
+        MESSAGE = {'STATUS':self.status, 'DATE': {'year': self.year, 'month': self.month, 'day': self.day, 'hour': self.hour, 'minute': self.minute},
+                   'TEXT': self.text,'raw_text':self.raw_message}
+        print(0)
+        return MESSAGE
+
+
+    def YearFinder(self,string):   #на вход получает изначальную строку. Возвращает год
         yeartxt = ['года']
         for i in yeartxt:
-            if i in str:
-                return str[str.find(i) - 5:str.find(i) - 1]
+            if i in string:
+                return string[string.find(i) - 5:string.find(i) - 1]
         else:
             return None
 
-    def month(str):     #на вход получает изначальную строку. Возвращает месяц
-        for i in FixDataFinder.__months__:
-            if i in str:
-                return FixDataFinder.__months__.index(i) + 1
+    def MonthFinder(self,string):     #на вход получает изначальную строку. Возвращает месяц
+        for i in self.months:
+            if i in string:
+                return self.months.index(i) + 1
         return None
 
-    def day(str):        #на вход получает изначальную строку. Возвращает день
-        for i in FixDataFinder.__months__:
-            if i in str:
-                if str[str.find(i) - 3].isdigit():
-                    return str[str.find(i) - 3:str.find(i) - 1]
+    def DayFinder(self,string):        #на вход получает изначальную строку. Возвращает день
+        for i in self.months:
+            if i in string:
+                if string[string.find(i) - 3].isdigit():
+                    return string[string.find(i) - 3:string.find(i) - 1]
                 else:
-                    return str[str.find(i) - 2:str.find(i) - 1]
+                    return string[string.find(i) - 2:string.find(i) - 1]
         return None
 
-    def time(str):      #на вход получает изначальную строку. Записывает время в окончательный словарь
-        global MESSAGE
-        if 'утром' in str or 'вечером' in str or 'днем' in str:
-            if 'утром' in str:
-                MESSAGE['DATE']['hour'] = 9
-                MESSAGE['DATE']['minute'] = 0
-            elif 'днем' in str:
-                MESSAGE['DATE']['hour'] = 13
-                MESSAGE['DATE']['minute'] = 0
-            elif 'вечером' in str:
-                MESSAGE['DATE']['hour'] = 19
-                MESSAGE['DATE']['minute'] = 0
-        elif str.rfind(':') and str[str.rfind(':')-1].isdigit() and str[str.rfind(':')+1].isdigit():
-            time = str[str.rfind(':') - 2:str.rfind(':') + 3]
-            if time[0] == ' ':
-                MESSAGE['DATE']['hour'] = time[1:2]
-                MESSAGE['DATE']['minute'] = time[3:]
+    def Time(self,string):      #на вход получает изначальную строку. Записывает время в окончательный словарь
+        if not self.hour and not self.minute:
+            if 'утром' in string or 'вечером' in string or 'днем' in string:
+                if 'утром' in string:
+                    self.hour = 9
+                    self.minute = 0
+                elif 'днем' in string:
+                        self.hour = 13
+                        self.minute = 0
+                elif 'вечером' in string:
+                        self.hour = 19
+                        self.minute = 0
+
+    def dayOfWeek(self, string):
+        for i in self.week:
+            if i in string:
+                if datetime.now().weekday() < self.week.index(i):
+                    return self.week.index(i)-datetime.now().weekday()
+                else:
+                    return (6-datetime.now().weekday())+self.week.index(i)
+
+    def dayOfWeek2(self, string):
+        for i in self.week:
+            if i in string:
+                return self.week.index(i)
+
+
+        """week = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+        for i in week:
+            if i in string:
+                return week[self.week.index(i)]"""
+
+
+
+    def Delete_Date(self, string):
+
+        for i in self.months:
+            if i in string:
+                return string[:string.find(i)-3]
+        for i in self.week:
+            if i in string:
+                return string[:string.find(i)-3]
+
+        if 'через' in string or 'Через' in string:
+            a = ['года','лет','месяца','месяцев','месяц' ,'дня','дней','часа','часов','час','минут','минуты','минуту','недель']
+            if string.find('через') == 0 or string.find('Через') == 0:
+                for i in a:
+                    if i in string:
+                        string = string[string.find(i)+len(i):]
+                return string
             else:
-                MESSAGE['DATE']['hour'] = time[:2]
-                MESSAGE['DATE']['minute'] = time[3:]
-
-    def dayOfWeek(str):
-        for i in FixDataFinder.__week__:
-            if i in str:
-                if datetime.now().weekday()<FixDataFinder.__week__.index(i):
-                    return FixDataFinder.__week__.index(i)-datetime.now().weekday()
-
-def Delete_Date(str):
-    __months__ = [
-        'января',
-        'февраля',
-        'марта',
-        'апреля',
-        "мая",
-        "июня",
-        "июля",
-        "августа",
-        "сентября",
-        "октября",
-        'декабря']
-    __week__ = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
-    for i in __months__:
-        if i in str:
-            return str[:str.find(i)-3]
-    for i in __week__:
-        if i in str:
-            return str[:str.find(i)-3]
-
-    if 'через' in str:
-        return str[:str.find('через')-1]
-    else:
-        for i in str:
-            if i.isdigit():
-                str=str[:str.find(i)-1]
-                if str[-1]=='в' and str[-2]==' ':
-                    str=str[:-2]
-                return str
-    if 'послезавтра' in str:
-        return str[:str.find('послезавтра')-1]
-    elif 'завтра' in str:
-        return str[:str.find('завтра')-1]
-
-    if re.search('\d\d.\d\d.\d{4}', msgin) or re.search('\d\d.\d\d.\d{2}', msgin):
-        if re.search('\d\d.\d\d.\d{4}', msgin):
-            r = re.search('\d\d.\d\d.\d{4}', msgin)
+                return string[:string.find('через')-1]
         else:
-            r = re.search('\d\d.\d\d.\d{2}', msgin)
-    return str[:r.start()]
+            for i in string:
+                if i.isdigit():
+                    string = string[:string.find(i)-1]
+                    if string[-1] == 'в' and string[-2] == ' ':
+                        string = string[:-2]
+                    return string
+        if 'послезавтра' in string:
+            return string[:string.find('послезавтра')-1]
+        elif 'завтра' in string:
+            return string[:string.find('завтра')-1]
+
+        if re.search('\d\d.\d\d.\d{4}', string) or re.search('\d\d.\d\d.\d{2}', string):
+            if re.search('\d\d.\d\d.\d{4}', string):
+                r = re.search('\d\d.\d\d.\d{4}', string)
+            else:
+                r = re.search('\d\d.\d\d.\d{2}', string)
+            return string[:r.start()]
 
 
 
 
-def dynamic_time(list):    #Используется когда используется предлог "через"
-    global current_time
-    if len(list)==1:
-        if list[0]=='год':
-            current_time += timedelta(years=1)
-        elif list[0] == 'час':
-            current_time += timedelta(hours=1)
-        elif list[0] == 'день':
-            current_time += timedelta(days=1)
-        elif list[0]=='месяц':
+    def dynamic_time(self,List,current_time):    #Используется когда используется предлог "через"
+        if len(List)==1:
+            if List[0]=='год':
+                current_time += timedelta(years=1)
+            elif List[0] == 'час':
+                current_time += timedelta(hours=1)
+            elif List[0] == 'день':
+                current_time += timedelta(days=1)
+            elif List[0]=='месяц':
+                current_time += timedelta(months=1)
+            elif List[0] == 'минуту':
+                current_time += timedelta(minutes=1)
+            elif List[0]=='неделю':
+                current_time += timedelta(days=7)
+        elif  List[1] == 'года' or list[1] == 'лет':
+            current_time += timedelta(years=int(List[0]))
+        elif List[1] == 'месяца' or list[1] == 'месяцев':
+            current_time += timedelta(months=int(List[0]))
+        elif List[1] == 'месяц':
             current_time += timedelta(months=1)
-        elif list[0] == 'минуту':
-            current_time += timedelta(minutes=1)
-        elif list[0]=='неделю':
-            current_time += timedelta(days=7)
-    elif  list[1] == 'года' or list[1] == 'лет':
-        current_time += timedelta(years=int(list[0]))
-    elif list[1] == 'месяца' or list[1] == 'месяцев':
-        current_time += timedelta(months=int(list[0]))
-    elif list[1] == 'месяц':
-        current_time += timedelta(months=1)
-    elif list[1] == 'дня' or list[1] == 'дней':
-        current_time += timedelta(days=int(list[0]))
-    elif list[1] == 'день':
-        current_time += timedelta(days=1)
-    elif list[1] == 'часа' or list[1] == 'часов':
-        current_time += timedelta(hours=int(list[0]))
-    elif list[1] == 'час':
-        current_time += timedelta(hours=1)
-    elif list[1] == 'минут' or list[1] == 'минуты':
-        current_time += timedelta(minutes=int(list[0]))
-    elif list[1] == 'минуту':
-        current_time += timedelta(minutes=1)
-    elif list[1]=='недель':
-            current_time += timedelta(days=7*list[0])
-
-def updateDynTime(c):
-
-    MESSAGE['DATE']['year'] = c.year
-    MESSAGE['DATE']['month'] = c.month
-    MESSAGE['DATE']['day'] = c.day
-    MESSAGE['DATE']['hour'] = c.hour
-    MESSAGE['DATE']['minute'] = c.minute
-
-
-def chisla(str):  #обрабатывает запросы типа: "Приготовить плов 17 числа". И тут у меня кончилась фантазия для названий функций
-    str=str[str.rfind('числа')-3:str.rfind('числа')-1]
-    if str[0]==' ':
-        str=str[1:]
-    c = datetime.now()
-    if int(str)<int(datetime.now().day):
-        c += relativedelta(months=1)
-        c -= relativedelta(days=c.day-int(str))
-        return c
-    else:
-        c += timedelta(days=int(str) - c.day)
-        return c
-
-def zero_adder():
-    global MESSAGE
-    num=[1,2,3,4,5,6,7,8,9]
-    snum=['1','2','3','4','5','6','7','8','9']
-    if MESSAGE['DATE']['month'] in num or MESSAGE['DATE']['month'] in snum :
-        MESSAGE['DATE']['month'] = '0' + str(MESSAGE['DATE']['month'])
-
-    if  MESSAGE['DATE']['day'] in num or MESSAGE['DATE']['day'] in snum:
-        MESSAGE['DATE']['day'] = '0' + str(MESSAGE['DATE']['day'])
-
-    if  MESSAGE['DATE']['minute'] in num:
-        MESSAGE['DATE']['minute'] = '0' + MESSAGE['DATE']['minute']
-
-    #if MESSAGE['DATE']['hour'] in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
-    #    MESSAGE['DATE']['hour'] = '0' + MESSAGE['DATE']['hour']
-
-def space_deleter():
-    global msgin
-    while '  ' in msgin:
-        msgin=msgin.replace('  ',' ')
-
-def addToInt():
-    global MESSAGE
-    int(MESSAGE['DATE']['year'])
-    int(MESSAGE['DATE']['month'])
-    int(MESSAGE['DATE']['day'])
-    int(MESSAGE['DATE']['hour'])
-    int(MESSAGE['DATE']['minute'])
-
-
-def datecomp():
-    global MESSAGE
-    c=datetime(int(MESSAGE['DATE']['year']),int(MESSAGE['DATE']['month']),int(MESSAGE['DATE']['day']),int(MESSAGE['DATE']['hour']),int(MESSAGE['DATE']['minute']))
-
-    if c>datetime.now():
-        return True
-    else:
-        return False
-
-try:
-    msgin = input()
-
-    space_deleter()
-
-    MESSAGE = {'STATUS': None, 'DATE': {'year': None, 'month': None, 'day': None, 'hour': None, 'minute': None},
-               'TEXT': None}
-
-
-    if re.search('\d\d.\d\d.\d{4}',msgin) or re.search('\d\d.\d\d.\d{2}',msgin):
-        if re.search('\d\d.\d\d.\d{4}',msgin):
-            r = re.search('\d\d.\d\d.\d{4}', msgin)
-        else:
-            r = re.search('\d\d.\d\d.\d{2}',msgin)
-        MESSAGE['DATE']['day'] = r[0][:2]
-        MESSAGE['DATE']['month'] = r[0][3:5]
-        MESSAGE['DATE']['year'] = r[0][6:]
-        MESSAGE['TEXT']=Delete_Date(msgin)
-
-    if re.search('\d\d:\d\d',msgin):
-        r = re.search('\d\d:\d\d', msgin)
-        MESSAGE['DATE']['hour'] = r[0][:2]
-        MESSAGE['DATE']['minute'] = r[0][2:]
-
-    elif 'через' in msgin:                            #здесь происходит обработка сообщения с предлогом через
-        str = msgin[msgin.rfind('через') + 6:]
-        list = str.split(' ')
-        current_time = datetime.now()
-        while list:
-            dynamic_time(list[:2])
-            list.remove(list[0])
-            if list:
-                list.remove(list[0])
-        updateDynTime(current_time)
-
-    elif 'завтра' in msgin or 'послезавтра' in msgin:
-        current_time = datetime.now()
-        if 'завтра' in msgin:
+        elif List[1] == 'дня' or List[1] == 'дней':
+            current_time += timedelta(days=int(List[0]))
+        elif List[1] == 'день':
             current_time += timedelta(days=1)
-        if 'послезавтра' in msgin:
-            current_time += timedelta(days=2)
-        updateDynTime(current_time)
-        MESSAGE['TEXT']=Delete_Date(msgin)
+        elif List[1] == 'часа' or list[1] == 'часов':
+            current_time += timedelta(hours=int(List[0]))
+        elif List[1] == 'час':
+            current_time += timedelta(hours=1)
+        elif List[1] == 'минут' or list[1] == 'минуты':
+            current_time += timedelta(minutes=int(List[0]))
+        elif List[1] == 'минуту':
+            current_time += timedelta(minutes=1)
+        elif List[1]=='недель':
+                current_time += timedelta(days=7*List[0])
+        return current_time
+    def updateDynTime(self,c):
+
+        self.year = c.year
+        self.month = c.month
+        self.day = c.day
+        self.hour = c.hour
+        self.minute = c.minute
 
 
-    elif 'числа' in msgin:
-        c=chisla(msgin)
-        updateDynTime(c)
-
-    elif 'понедельник' in msgin or'вторник' in msgin or 'среду' in msgin or 'четверг' in msgin or 'пятницу' in msgin or 'субботу' in msgin or'воскресенье' in msgin:
-        current_time = datetime.now()
-        current_time+= relativedelta(days=FixDataFinder.dayOfWeek(msgin))
-        updateDynTime(current_time)
-        FixDataFinder.time(msgin)
-
-
-    else:
-        MESSAGE['DATE']['year'] = FixDataFinder.year(msgin)
-        MESSAGE['DATE']['month'] =FixDataFinder.month(msgin)
-        MESSAGE['DATE']['day'] = FixDataFinder.day(msgin)
-        FixDataFinder.time(msgin)
+    def chisla(self,string):  #обрабатывает запросы типа: "Приготовить плов 17 числа". И тут у меня кончилась фантазия для названий функций
+        string = string[string.rfind('числа')-3:string.rfind('числа')-1]
+        if string[0] == ' ':
+            string = string[1:]
+        c = datetime.now()
+        if int(string) < int(datetime.now().day):
+            c += relativedelta(months=1)
+            c -= relativedelta(days=c.day-int(string))
+            return c
+        else:
+            c += timedelta(days=int(string) - c.day)
+            return c
 
 
-        if not MESSAGE['DATE']['year']:
-            MESSAGE['DATE']['year'] = datetime.now().year
-        if not MESSAGE['DATE']['month']:
-            MESSAGE['DATE']['month'] = datetime.now().month
-        if not MESSAGE['DATE']['day']:
-            MESSAGE['DATE']['day'] = datetime.now().day
-            if not datecomp():
-                MESSAGE['DATE']['day'] += 1
-        if not MESSAGE['DATE']['hour']:
-            MESSAGE['DATE']['hour'] = datetime.now().hour
-        if not MESSAGE['DATE']['minute']:
-            MESSAGE['DATE']['minute'] = datetime.now().minute
-        if not datecomp():
-            MESSAGE['DATE']['year'] += 1
-    MESSAGE['TEXT'] = Delete_Date(msgin)
-    MESSAGE['STATUS'] = 'SUCCESS'
-    print(MESSAGE)
-except Exception as e:
-    MESSAGE['STATUS'] = 'ERROR'
-    MESSAGE['TEXT'] = e
-    print(MESSAGE)
 
-#print("Напоминание записано!", '\n', MESSAGE['TEXT'], '\n', 'Выполнить в ', MESSAGE['DATE']['hour'], ':',MESSAGE['DATE']['minute'], ' ', MESSAGE['DATE']['day'], '.', MESSAGE['DATE']['month'], '.',MESSAGE['DATE']['year'], sep='')
+    def datecomp(self):
+        c = datetime(int(self.year),int(self.month),int(self.day),int(self.hour),int(self.minute))
+        if c > datetime.now():
+            return True
+        else:
+            return False
+
+
+pars1 = Parser(input())
+print(pars1.Print_info())
+
+
 
 
 
