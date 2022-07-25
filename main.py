@@ -38,6 +38,7 @@ class Parser:
             pass
 
         if 1:
+
             if re.search('\d\d.\d\d.\d{4}', message) or re.search('\d\d.\d\d.\d{2}', message):
                 if re.search('\d\d.\d\d.\d{4}', message):
                     r = re.search('\d\d.\d\d.\d{4}', message)
@@ -58,8 +59,55 @@ class Parser:
                 self.hour = r[0][1:2]
                 self.minute = r[0][3:]
 
-            if 'через' in message or 'Через' in message:  # здесь происходит обработка сообщения с предлогом через
-                string = message[message.rfind('через') + 7:]
+            if 'кажд' in message or "Кажд" in message:
+                if "каждый" in message or " Каждый" in message:
+                    if "день" in message:
+                        self.repeatAlways = 'day'
+                    elif 'месяц' in message:
+                        self.repeatAlways = 'month'
+                    elif 'год' in message:
+                        self.repeatAlways = 'year'
+                    elif 'час' in message:
+                        self.repeatAlways = 'hour'
+                    elif 'понедельник' in message:
+                        self.repeatAlways = 'monday'
+                    elif 'вторник' in message:
+                        self.repeatAlways='tuesday'
+                    elif "четверг" in message:
+                        self.repeatAlways='thursday'
+                elif "каждое" in message or " Каждое" in message:
+                    if 'число' in message:
+                        self.day = message[message.find('число')-3:message.find('число')]
+                        if self.day[0] == ' ':
+                            self.day = self.day[1:]
+                        if self.day[-1] == ' ':
+                            self.day = self.day[:-1]
+                        self.repeatAlways = 'month'
+                    elif "Воскресенье" in message:
+                        self.repeatAlways = 'sunday'
+                    elif "утро" in message:
+                        self.repeatAlways = 'day'
+                        self.hour = 9
+                        self.minute = 0
+                elif "каждую" in message:
+                    if "среду" in message:
+                        self.repeatAlways ='wednesday'
+                    elif 'пятницу' in message:
+                        self.repeatAlways ='friday'
+                    elif 'субботу' in message:
+                        self.repeatAlways ='saturday'
+                    elif "неделю" in message:
+                        self.repeatAlways ='week'
+                if "каждые" in message:
+                    if "выходные" in message:
+                        self.repeatAlways = 'weekends'
+                self.text = self.Delete_Date(message)
+
+
+            elif 'через' in message or 'Через' in message:  # здесь происходит обработка сообщения с предлогом через
+                string = message[message.rfind('через') + 6:]
+                if string[0] == ' ':
+                    string = string[1:]
                 List = string.split(' ')
                 current_time = datetime.now()
                 while List:
@@ -88,7 +136,7 @@ class Parser:
                 cur = datetime.now()
                 cur += timedelta(days=self.DayOfWeek)
                 self.day = cur.day
-                self.month=cur.month
+                self.month = cur.month
                 if not self.hour and not self.minute:
                     self.hour = datetime.now().hour
                     self.minute = datetime.now().minute
@@ -100,13 +148,13 @@ class Parser:
                 self.Time(message)
                 self.Time(message)
 
-            if not self.year:
+            if not self.year and not self.repeatAlways:
                 self.year = datetime.now().year
                 if not self.datecomp():
                     self.year += 1
-            if not self.month:
+            if not self.month and not self.repeatAlways:
                 self.month = datetime.now().month
-            if not self.day:
+            if not self.day and not self.repeatAlways:
                 self.day = datetime.now().day
                 if not self.datecomp():
                     self.day += 1
@@ -115,6 +163,7 @@ class Parser:
             if not self.minute:
                 self.minute = 0
             self.text = self.Delete_Date(message)
+            #self.text = self.Delete_Date(self.text)
             self.status = 'SUCCESS'
             if self.text[-1] == ' ':
                 self.text = self.text[:-1]
@@ -126,7 +175,14 @@ class Parser:
 
 
     def Print_info(self):
-        MESSAGE = {'STATUS':self.status, 'DATE': {'year': self.year, 'month': self.month, 'day': self.day, 'hour': self.hour, 'minute': self.minute},
+        if self.repeatAlways:
+            MESSAGE = {'STATUS': self.status,'DATE': {'hour': self.hour, 'minute': self.minute},
+                       'PARAMS': {"REPEAT_ALWAYS":self.repeatAlways},
+                       'TEXT': self.text, 'raw_text': self.raw_message}
+            if self.day:
+                MESSAGE['DATE']['day'] = self.day
+        else:
+            MESSAGE = {'STATUS':self.status, 'DATE': {'year': self.year, 'month': self.month, 'day': self.day, 'hour': self.hour, 'minute': self.minute},
                    'TEXT': self.text,'raw_text':self.raw_message}
         print(0)
         return MESSAGE
@@ -197,7 +253,16 @@ class Parser:
         for i in self.week:
             if i in string:
                 return string[:string.find(i)-3]
+        if 'кажд' in string:
+            f = string.split()
+            for i in f:
+                if 'кажд' in i:
+                    if f[f.index(i)+2]=='число':
+                        del f[f.index(i):f.index(i) + 3]
+                    else:
+                        del f[f.index(i):f.index(i)+2]
 
+                    return ' '.join(f)
         if 'через' in string or 'Через' in string:
             a = ['года','лет','месяца','месяцев','месяц' ,'дня','дней','часа','часов','час','минут','минуты','минуту','недель']
             if string.find('через') == 0 or string.find('Через') == 0:
@@ -214,6 +279,7 @@ class Parser:
                     if string[-1] == 'в' and string[-2] == ' ':
                         string = string[:-2]
                     return string
+
         if 'послезавтра' in string:
             return string[:string.find('послезавтра')-1]
         elif 'завтра' in string:
@@ -226,29 +292,38 @@ class Parser:
                 r = re.search('\d\d.\d\d.\d{2}', string)
             return string[:r.start()]
 
+        if re.search('\d\d:\d\d', string):
+            r = re.search('\d\d:\d\d', string)
+            return string[:r.start() - 2] + string[r.end():]
+
+        if re.search('\d:\d\d', string):
+            r = re.search('\d:\d\d', string)
+            return string[:r.start() - 2] + string[r.end():]
+
+
 
 
 
     def dynamic_time(self,List,current_time):    #Используется когда используется предлог "через"
-        if len(List)==1:
+        if not List[0]=='\d\d' or not List[0]=='\d':
             if List[0]=='год':
-                current_time += timedelta(years=1)
+                current_time += relativedelta(years=1)
             elif List[0] == 'час':
                 current_time += timedelta(hours=1)
             elif List[0] == 'день':
                 current_time += timedelta(days=1)
             elif List[0]=='месяц':
-                current_time += timedelta(months=1)
+                current_time += relativedelta(months=1)
             elif List[0] == 'минуту':
                 current_time += timedelta(minutes=1)
             elif List[0]=='неделю':
                 current_time += timedelta(days=7)
-        elif  List[1] == 'года' or list[1] == 'лет':
-            current_time += timedelta(years=int(List[0]))
+        elif List[1] == 'года' or list[1] == 'лет':
+            current_time += relativedelta(years=int(List[0]))
         elif List[1] == 'месяца' or list[1] == 'месяцев':
-            current_time += timedelta(months=int(List[0]))
+            current_time += relativedelta(months=int(List[0]))
         elif List[1] == 'месяц':
-            current_time += timedelta(months=1)
+            current_time += relativedelta(months=1)
         elif List[1] == 'дня' or List[1] == 'дней':
             current_time += timedelta(days=int(List[0]))
         elif List[1] == 'день':
@@ -261,8 +336,8 @@ class Parser:
             current_time += timedelta(minutes=int(List[0]))
         elif List[1] == 'минуту':
             current_time += timedelta(minutes=1)
-        elif List[1]=='недель':
-                current_time += timedelta(days=7*List[0])
+        elif List[1] == 'недель':
+                current_time += timedelta(days=7*int(List[0]))
         return current_time
     def updateDynTime(self,c):
 
