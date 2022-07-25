@@ -32,13 +32,10 @@ class Parser:
         self.DayOfWeek = None
         self.repeatAlways = None
         self.status = None
+
+
+
         try:
-            pass
-        except Exception as e:
-            pass
-
-        if 1:
-
             if re.search('\d\d.\d\d.\d{4}', message) or re.search('\d\d.\d\d.\d{2}', message):
                 if re.search('\d\d.\d\d.\d{4}', message):
                     r = re.search('\d\d.\d\d.\d{4}', message)
@@ -48,6 +45,17 @@ class Parser:
                 self.month = r[0][3:5]
                 self.year = r[0][6:]
                 self.text = self.Delete_Date(message)
+
+            if re.search('\d\d-\d\d-\d{4}', message) or re.search('\d\d-\d\d-\d{2}', message):
+                if re.search('\d\d-\d\d-\d{4}', message):
+                    r = re.search('\d\d-\d\d-\d{4}', message)
+                else:
+                    r = re.search('\d\d-\d\d-\d{2}', message)
+                self.day = r[0][:2]
+                self.month = r[0][3:5]
+                self.year = r[0][6:]
+                self.text = self.Delete_Date(message)
+
 
             if re.search('\d\d:\d\d', message):
                 r = re.search('\d\d:\d\d', message)
@@ -113,7 +121,7 @@ class Parser:
                 while List:
                     current_time = self.dynamic_time(List[:2],current_time)
                     List.remove(List[0])
-                    if List:
+                    if List and not List[0].isdigit():
                         List.remove(List[0])
                 self.updateDynTime(current_time)
 
@@ -148,10 +156,15 @@ class Parser:
                 self.Time(message)
                 self.Time(message)
 
+
+
             if not self.year and not self.repeatAlways:
                 self.year = datetime.now().year
-                if not self.datecomp():
-                    self.year += 1
+                try:
+                    if not self.datecomp():
+                        self.year += 1
+                except:
+                    pass
             if not self.month and not self.repeatAlways:
                 self.month = datetime.now().month
             if not self.day and not self.repeatAlways:
@@ -167,10 +180,10 @@ class Parser:
             self.status = 'SUCCESS'
             if self.text[-1] == ' ':
                 self.text = self.text[:-1]
-        """except Exception as e:
+        except Exception as e:
             pass
             self.status = 'ERROR'
-            self.text = e"""
+            self.text = e
 
 
 
@@ -257,14 +270,17 @@ class Parser:
             f = string.split()
             for i in f:
                 if 'кажд' in i:
-                    if f[f.index(i)+2]=='число':
-                        del f[f.index(i):f.index(i) + 3]
-                    else:
+                    try:
+                        if f[f.index(i)+2]=='число':
+                            del f[f.index(i):f.index(i) + 3]
+                        else:
+                            del f[f.index(i):f.index(i) + 2]
+                    except:
                         del f[f.index(i):f.index(i)+2]
 
                     return ' '.join(f)
         if 'через' in string or 'Через' in string:
-            a = ['года','лет','месяца','месяцев','месяц' ,'дня','дней','часа','часов','час','минут','минуты','минуту','недель']
+            a = ['день','года','лет','месяца','месяцев','месяц' ,'дня','дней','часа','часов','час','минут','минуты','минуту','недель']
             if string.find('через') == 0 or string.find('Через') == 0:
                 for i in a:
                     if i in string:
@@ -305,8 +321,8 @@ class Parser:
 
 
     def dynamic_time(self,List,current_time):    #Используется когда используется предлог "через"
-        if not List[0]=='\d\d' or not List[0]=='\d':
-            if List[0]=='год':
+        if not List[0].isdigit():
+            if List[0] == 'год':
                 current_time += relativedelta(years=1)
             elif List[0] == 'час':
                 current_time += timedelta(hours=1)
@@ -344,8 +360,10 @@ class Parser:
         self.year = c.year
         self.month = c.month
         self.day = c.day
-        self.hour = c.hour
-        self.minute = c.minute
+        if not self.hour:
+            self.hour = c.hour
+        if not self.minute:
+            self.minute = c.minute
 
 
     def chisla(self,string):  #обрабатывает запросы типа: "Приготовить плов 17 числа". И тут у меня кончилась фантазия для названий функций
