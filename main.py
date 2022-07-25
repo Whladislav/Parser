@@ -67,6 +67,32 @@ class Parser:
                 self.hour = r[0][1:2]
                 self.minute = r[0][3:]
 
+
+            if ' по ' in message or "По " in message:
+                if 'понедельникам' in message:
+                    self.repeatAlways = 'monday'
+                elif 'вторникам' in message:
+                    self.repeatAlways='tuesday'
+                elif "четвергам" in message:
+                    self.repeatAlways='thursday'
+                elif "воскресеньям" in message:
+                    self.repeatAlways = 'sunday'
+                elif "утрам" in message:
+                    self.repeatAlways = 'day'
+                    self.hour = 9
+                    self.minute = 0
+                elif "средам" in message:
+                    self.repeatAlways ='wednesday'
+                elif 'пятницам' in message:
+                    self.repeatAlways ='friday'
+                elif 'субботам' in message:
+                    self.repeatAlways ='saturday'
+                elif "выходным" in message:
+                    self.repeatAlways = 'weekends'
+                self.text = self.Delete_Date(message)
+
+
+
             if 'кажд' in message or "Кажд" in message:
                 if "каждый" in message or " Каждый" in message:
                     if "день" in message:
@@ -143,7 +169,7 @@ class Parser:
                 self.DayOfWeek = self.dayOfWeek(message)+1
                 cur = datetime.now()
                 cur += timedelta(days=self.DayOfWeek)
-                self.day = cur.day
+                self.day = cur.day -1
                 self.month = cur.month
                 if not self.hour and not self.minute:
                     self.hour = datetime.now().hour
@@ -165,6 +191,7 @@ class Parser:
                         self.year += 1
                 except:
                     pass
+
             if not self.month and not self.repeatAlways:
                 self.month = datetime.now().month
             if not self.day and not self.repeatAlways:
@@ -175,11 +202,17 @@ class Parser:
                 self.hour = datetime.now().hour
             if not self.minute:
                 self.minute = 0
+            try:
+                if not self.datecomp():
+                    self.year += 1
+            except:
+                pass
             self.text = self.Delete_Date(message)
-            #self.text = self.Delete_Date(self.text)
+            self.text = self.Delete_Date(self.text)
             self.status = 'SUCCESS'
             if self.text[-1] == ' ':
                 self.text = self.text[:-1]
+
         except Exception as e:
             pass
             self.status = 'ERROR'
@@ -251,21 +284,17 @@ class Parser:
                 return self.week.index(i)
 
 
-        """week = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
-        for i in week:
-            if i in string:
-                return week[self.week.index(i)]"""
-
-
-
     def Delete_Date(self, string):
 
         for i in self.months:
             if i in string:
                 return string[:string.find(i)-3]
-        for i in self.week:
-            if i in string:
-                return string[:string.find(i)-3]
+        if ' по ' in string or 'По' in string:
+            f = string.split()
+            for i in f:
+                if  i=='по' or i=='По':
+                    del f[f.index(i):f.index(i) + 2]
+                    return ' '.join(f)
         if 'кажд' in string:
             f = string.split()
             for i in f:
@@ -279,6 +308,21 @@ class Parser:
                         del f[f.index(i):f.index(i)+2]
 
                     return ' '.join(f)
+
+        if 'понедельник' in string or 'вторник' in string or 'среду' in string or 'четверг' in string or 'пятницу' in string or 'субботу' in string or 'воскресенье' in string:
+            for i in self.week:
+                if string.find(i)+len(i)==len(string):
+                    return string[:string.find(i)-2]
+                else:
+                    return string[string.find(i)+len(i):]
+
+
+
+        for i in self.week:
+            if i in string:
+                return string[:string.find(i)-3]
+
+
         if 'через' in string or 'Через' in string:
             a = ['день','года','лет','месяца','месяцев','месяц' ,'дня','дней','часа','часов','час','минут','минуты','минуту','недель']
             if string.find('через') == 0 or string.find('Через') == 0:
@@ -387,6 +431,7 @@ class Parser:
             return True
         else:
             return False
+
 
 
 pars1 = Parser(input())
